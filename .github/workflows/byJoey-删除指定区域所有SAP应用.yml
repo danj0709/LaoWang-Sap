@@ -1,4 +1,4 @@
-name: 删除指定区域所有SAP应用
+name: byJoey-删除指定区域所有SAP应用
 
 on:
   workflow_dispatch:
@@ -83,4 +83,5 @@ jobs:
       run: |
         echo "----------------------------------------"
         echo "删除操作完成。验证区域 ${{ github.event.inputs.region }} 中剩余的应用:"
+
         cf apps
