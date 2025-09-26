@@ -26,7 +26,7 @@ on:
         default: false
 
 env:
-  MEMORY: 256M
+  MEMORY: 512M
 
 jobs:
   deploy:
@@ -75,7 +75,8 @@ jobs:
         
         echo "APP_NAME=$DEFAULT_APP_NAME" >> $GITHUB_ENV
         echo "将使用API端点: ${{ env.CF_API }}"
-        echo "已自动生成应用名称: $DEFAULT_APP_NAME"
+        # echo "已自动生成应用名称: $DEFAULT_APP_NAME"
+        echo "应用名称: $APP_NAME"
 
     - name: 登录并自动选择组织和空间
       run: |
@@ -204,4 +205,5 @@ jobs:
         fi
 
         echo "----------------------------------------"
+
 
