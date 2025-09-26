@@ -1,0 +1,86 @@
+name: 删除指定区域所有SAP应用
+
+on:
+  workflow_dispatch:
+    inputs:
+      region:
+        description: '选择要删除应用的区域 (SG 或 US)'
+        required: true
+        default: 'SG'
+        type: choice
+        options:
+          - SG
+          - US
+      confirmation:
+        description: '此操作不可逆！请输入 "确认删除" 来执行。'
+        required: true
+        type: string
+
+jobs:
+  delete-apps:
+    runs-on: ubuntu-latest
+    name: 从区域 ${{ github.event.inputs.region }} 删除所有应用
+    
+    steps:
+    - name: 验证操作确认
+      run: |
+        if [ "${{ github.event.inputs.confirmation }}" != "确认删除" ]; then
+          echo "错误：输入不匹配 '确认删除'，操作已取消。"
+          exit 1
+        fi
+
+    - name: 安装 CF CLI
+      run: |
+        wget -q -O - https://packages.cloudfoundry.org/debian/cli.cloudfoundry.org.key | sudo apt-key add -
+        echo "deb https://packages.cloudfoundry.org/debian stable main" | sudo tee /etc/apt/sources.list.d/cloudfoundry-cli.list
+        sudo apt-get update
+        sudo apt-get install -y cf8-cli
+
+    - name: 设置区域相关变量
+      run: |
+        if [ "${{ github.event.inputs.region }}" = "SG" ]; then
+          echo "CF_API=https://api.cf.ap21.hana.ondemand.com" >> $GITHUB_ENV
+          echo "使用新加坡(SG)区域"
+        else
+          echo "CF_API=https://api.cf.us10-001.hana.ondemand.com" >> $GITHUB_ENV
+          echo "使用美国(US)区域"
+        fi
+
+    - name: 登录并自动选择组织和空间
+      run: |
+        cf login -a ${{ env.CF_API }} -u "${{ secrets.EMAIL }}" -p "${{ secrets.PASSWORD }}"
+        SELECTED_ORG=$(cf orgs | awk 'NR>3 {print $1; exit}')
+        if [ -z "$SELECTED_ORG" ]; then echo "错误：未找到可用组织"; exit 1; fi
+        cf target -o "$SELECTED_ORG"
+        SELECTED_SPACE=$(cf spaces | awk 'NR>3 {print $1; exit}')
+        if [ -z "$SELECTED_SPACE" ]; then echo "错误：未找到可用空间"; exit 1; fi
+        cf target -s "$SELECTED_SPACE"
+        echo "将从 组织: $SELECTED_ORG / 空间: $SELECTED_SPACE 中删除应用"
+
+    - name: 获取并删除所有应用
+      run: |
+        # 这里是修正后的关键部分，确保 awk 语句有完整的单引号
+        apps=$(cf apps | awk 'NR>3 {print $1}')
+        
+        if [ -z "$apps" ]; then
+          echo "在区域 ${{ github.event.inputs.region }} 中未找到任何应用，无需删除。"
+          exit 0
+        fi
+        
+        echo "发现以下应用，将全部删除:"
+        echo "$apps"
+        
+        # 循环删除每个应用
+        for app in $apps; do
+          echo "----------------------------------------"
+          echo "正在删除应用: $app"
+          # 使用 -f 强制删除，-r 同时删除关联的路由
+          cf delete -f -r "$app"
+          echo "应用 $app 删除成功。"
+        done
+
+    - name: 最终验证
+      run: |
+        echo "----------------------------------------"
+        echo "删除操作完成。验证区域 ${{ github.event.inputs.region }} 中剩余的应用:"
+        cf apps
