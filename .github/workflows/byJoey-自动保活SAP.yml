@@ -1,4 +1,4 @@
-name: 自动保活 SAP
+name: byJoey-自动保活 SAP
 
 on:
   schedule:
@@ -280,4 +280,5 @@ jobs:
     - name: 验证最终应用状态
       run: |
         echo "验证US区域最终应用状态..."
+
         cf apps
